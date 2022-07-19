@@ -225,17 +225,17 @@ function Base.show(io::IO, board::Board)
     col_runs = map(r-> abs.(r), board.col_runs)
     row_run_wids = []
     for runs in row_runs
-        wid = max(filter(!isempty, runs)...) > 9 ? length(runs) : 0
+        wid = max(0, filter(!isempty, runs)...) > 9 ? length(runs) : 0
         for run in runs
             wid += run > 9 ? 2 : 1
         end
         push!(row_run_wids, wid)
     end
     row_pad = max(row_run_wids...)
-    max_row_run = max(max.(filter(!isempty, row_runs)...)...)
+    max_row_run = max(max.([0], filter(!isempty, row_runs)...)...)
     row_run_sep = max_row_run > 9 ? " " : ""
     max_col_runs = max(length.(col_runs)...)
-    col_wids = max(max.(filter(!isempty, col_runs)...)...) > 9 ? 2 : 1
+    col_wids = max(max.([0], filter(!isempty, col_runs)...)...) > 9 ? 2 : 1
     for r in max_col_runs:-1:1
         Printf.format(stdout, Printf.Format("%$(row_pad)s"), " ")
         for c in col_runs
@@ -251,24 +251,24 @@ function Base.show(io::IO, board::Board)
     end
 end
 
+function solve(rows::AbstractArray, cols::AbstractArray; diag = false)
+    b = Board(rows, cols)
+    println("STARTING BOARD:")
+    println(b)
+    line_solve(b; diag)
+    println(any(==(unknown), b.cells) ? "UN" : "", "SOLVED BOARD:")
+    println(b)
+    println()
+end
+
 #
 # Tests
 #
 
-b = Board([[1, 1], [1, 1], [1, 1]], [[3], [], [3]])
-println("STARTING BOARD:")
-println(b)
-line_solve(b)
-println("SOLVED BOARD:")
-println(b)
-println()
+solve([[1, 1], [1, 1], [1, 1]], [[3], [], [3]])
 
-b = Board([[1, 1], [1, 2], [2], [3], [3]], [[2, 2], [3], [3], [1], [2]])
-println("STARTING BOARD:")
-println(b)
-line_solve(b; diag = true)
-println("SOLVED BOARD:")
-println(b)
-println()
+solve([[1, 1], [1, 2], [2], [3], [3]], [[2, 2], [3], [3], [1], [2]]; diag = true)
+
+solve([[],[1], [1], [], []], [[2], [1, 1], [1, 1], [1, 1], [2, 1]]; diag = true)
 
 nothing
