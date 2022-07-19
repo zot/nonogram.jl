@@ -5,7 +5,6 @@ using Printf
 const Runs = AbstractVector{I} where {I <: Integer}
 const RunList = AbstractVector{I} where {II <: Integer, I <: AbstractVector{II}}
 const Line = AbstractVector{C} where {C <: Cell}
-const EMPTY_HOLE = 2:1
 
 struct Board
     row_runs::RunList
@@ -16,70 +15,16 @@ end
 function Board(row_runs::AbstractArray, col_runs::AbstractArray)
     length(row_runs) != length(col_runs) &&
         error("Number of row runs != number of col runs")
-    Board(row_runs, col_runs, fill(unknown, length(row_runs), length(row_runs)))
-end
-
-Board(row_runs::AbstractArray{A}, col_runs::AbstractArray{B}, cells) where {
-    A <: AbstractArray, B <: AbstractArray
-} =
     Board(
         convert(Vector{Vector{Int}}, row_runs),
         convert(Vector{Vector{Int}}, col_runs),
-        cells
+        fill(unknown, length(row_runs), length(row_runs))
     )
+end
 
 Base.size(b::Board) = size(b.cells, 1)
 
 Base.view(b::Board, dim1, dim2) = view(b.cells, dim1, dim2)
-
-cell(c::Char) = c == '.' ? unknown : c == '@' ? on : off
-char(c::Cell) = c == on ? '@' : c == off ? 'X' : '.'
-
-line(s::AbstractString) = map(cell, collect(s))
-line(size::Integer) = fill(unknown, size)
-
-macro line_str(s)
-    :(line($s))
-end
-
-runs(r::RunList) = r
-runs(r::AbstractArray{A}) where {A <:AbstractArray} =
-    convert(Vector{Vector{Int}}, r)
-
-Base.show(io::IO, cell::Cell) = print(io, char(cell))
-Base.show(io::IO, line::Line) = for c in line
-    show(io, c)
-end
-function Base.show(io::IO, board::Board)
-    row_runs = map(r-> abs.(r), board.row_runs)
-    col_runs = map(r-> abs.(r), board.col_runs)
-    row_run_wids = []
-    for runs in row_runs
-        wid = max(filter(!isempty, runs)...) > 9 ? length(runs) : 0
-        for run in runs
-            wid += run > 9 ? 2 : 1
-        end
-        push!(row_run_wids, wid)
-    end
-    row_pad = max(row_run_wids...)
-    max_row_run = max(max.(filter(!isempty, row_runs)...)...)
-    row_run_sep = max_row_run > 9 ? " " : ""
-    max_col_runs = max(length.(col_runs)...)
-    col_wids = max(max.(filter(!isempty, col_runs)...)...) > 9 ? 2 : 1
-    for r in max_col_runs:-1:1
-        Printf.format(stdout, Printf.Format("%$(row_pad)s"), " ")
-        for c in col_runs
-            Printf.format(io, Printf.Format("%-$(col_wids)s"),
-                          r <= length(c) ? c[r] : " ")
-        end
-        println()
-    end
-    for row in 1:size(board)
-        Printf.format(io, Printf.Format("%$(row_pad)s"), join(row_runs[row], row_run_sep))
-        show(io, view(board.cells, row, :))
-        row < size(board) && println(io)
-    end
-end
 
 function holes(line::Line)
     result = []
@@ -102,7 +47,6 @@ function line_solve(board::Board; diag = false)
         changed = false
         for row = 1:size(board)
             localchanged = solve(view(board, row, :), board.row_runs[row]; diag)
-            #localchanged && output(board)
             localchanged && println(board)
             changed |= localchanged
         end
@@ -212,6 +156,10 @@ function empty_unreachable(line::Line, runs::Runs)
     changed
 end
 
+"""
+Eliminate trailing runs that can be the only ones to fit
+in trailing holes
+"""
 function trim_trailing(holes::AbstractVector, runs::Runs)
     isempty(holes) && return runs
     result = @view runs[1:end]
@@ -227,20 +175,6 @@ function trim_trailing(holes::AbstractVector, runs::Runs)
         holes = @view holes[1:end - 1]
     end
     result
-end
-
-"""
-Eliminate trailing runs that can be the only ones to fit
-in trailing holes
-"""
-function trim_trailing(line::Line, runs::Runs)
-    length(runs) < 2 && return runs
-    allholes = holes(line)
-    while length(runs) > 1 && length(allholes[end]) <= runs[end] + 1
-        pop!(allholes)
-        runs = @view(runs[1 : end - 1])
-    end
-    runs
 end
 
 function mark_complete_forward(line::Line, runs::Runs)
@@ -268,6 +202,53 @@ return a view of runs that haven't been completed yet
 function valid(runs::Runs)
     indices = [i for (i, r) in enumerate(runs) if r > 0]
     length(indices) == length(runs) ? runs : view(runs, indices)
+end
+
+#
+# Diagnostics
+#
+
+line(s::AbstractString) = map(cell, collect(s))
+line(size::Integer) = fill(unknown, size)
+
+macro line_str(s) :(line($s)) end
+
+cell(c::Char) = c == '.' ? unknown : c == '@' ? on : off
+char(c::Cell) = c == on ? '@' : c == off ? 'X' : '.'
+
+Base.show(io::IO, cell::Cell) = print(io, char(cell))
+Base.show(io::IO, line::Line) = for c in line
+    show(io, c)
+end
+function Base.show(io::IO, board::Board)
+    row_runs = map(r-> abs.(r), board.row_runs)
+    col_runs = map(r-> abs.(r), board.col_runs)
+    row_run_wids = []
+    for runs in row_runs
+        wid = max(filter(!isempty, runs)...) > 9 ? length(runs) : 0
+        for run in runs
+            wid += run > 9 ? 2 : 1
+        end
+        push!(row_run_wids, wid)
+    end
+    row_pad = max(row_run_wids...)
+    max_row_run = max(max.(filter(!isempty, row_runs)...)...)
+    row_run_sep = max_row_run > 9 ? " " : ""
+    max_col_runs = max(length.(col_runs)...)
+    col_wids = max(max.(filter(!isempty, col_runs)...)...) > 9 ? 2 : 1
+    for r in max_col_runs:-1:1
+        Printf.format(stdout, Printf.Format("%$(row_pad)s"), " ")
+        for c in col_runs
+            Printf.format(io, Printf.Format("%-$(col_wids)s"),
+                          r <= length(c) ? c[r] : " ")
+        end
+        println()
+    end
+    for row in 1:size(board)
+        Printf.format(io, Printf.Format("%$(row_pad)s"), join(row_runs[row], row_run_sep))
+        show(io, view(board.cells, row, :))
+        row < size(board) && println(io)
+    end
 end
 
 #
