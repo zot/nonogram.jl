@@ -236,11 +236,12 @@ function Base.show(io::IO, board::Board)
     row_run_sep = max_row_run > 9 ? " " : ""
     max_col_runs = max(length.(col_runs)...)
     col_wids = max(max.([0], filter(!isempty, col_runs)...)...) > 9 ? 2 : 1
-    for r in max_col_runs:-1:1
+    for r in 1:max_col_runs
         Printf.format(stdout, Printf.Format("%$(row_pad)s"), " ")
         for c in col_runs
+            ind = length(c) - max_col_runs + r
             Printf.format(io, Printf.Format("%-$(col_wids)s"),
-                          r <= length(c) ? c[r] : " ")
+                          ind > 0 ? c[ind] : " ")
         end
         println()
     end
@@ -267,8 +268,8 @@ end
 
 solve([[1, 1], [1, 1], [1, 1]], [[3], [], [3]])
 
-solve([[1, 1], [1, 2], [2], [3], [3]], [[2, 2], [3], [3], [1], [2]]; diag = true)
+solve([[1, 1], [1, 2], [2], [3], [3]], [[2, 2], [3], [3], [1], [2]])
 
-solve([[],[1], [1], [], []], [[2], [1, 1], [1, 1], [1, 1], [2, 1]]; diag = true)
+#solve([[],[1], [1], [], []], [[2], [1, 1], [1, 1], [1, 1], [2, 1]]; diag = true)
 
 nothing
