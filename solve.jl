@@ -74,10 +74,10 @@ function Base.show(io::IO, board::Board)
         end
         println()
     end
-    for row in 1:size(board.cells, 1)
+    for row in 1:size(board)
         Printf.format(io, Printf.Format("%$(row_pad)s"), join(row_runs[row], row_run_sep))
         show(io, view(board.cells, row, :))
-        row < size(board.cells, 1) && println(io)
+        row < size(board) && println(io)
     end
 end
 
